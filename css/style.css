@@ -349,6 +349,87 @@ body {
     padding-top: 20px;
 }
 
+.graphical-chooser {
+    display: none;
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+}
+
+.graphical-chooser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.clear-choice-btn {
+    padding: 6px 12px;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.clear-choice-btn:hover:not(:disabled) {
+    background-color: var(--accent-danger);
+    color: var(--bg-primary);
+    border-color: var(--accent-danger);
+}
+
+.clear-choice-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.graphical-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.graphical-option {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.graphical-option:hover:not(:disabled) {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(100, 181, 246, 0.3);
+}
+
+.graphical-option.selected {
+    background-color: rgba(100, 181, 246, 0.2);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    transform: scale(1.1);
+}
+
+.graphical-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .answer-input-wrapper {
     display: flex;
     gap: 10px;
@@ -822,5 +903,11 @@ body {
 
     .stats-summary {
         grid-template-columns: 1fr;
+    }
+
+    .graphical-option {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
     }
 }

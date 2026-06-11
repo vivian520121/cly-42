@@ -35,7 +35,9 @@
         completedModal: document.getElementById('completedModal'),
         completedMessage: document.getElementById('completedMessage'),
         closeCompleted: document.getElementById('closeCompleted'),
-        themeBtn: document.getElementById('themeBtn')
+        themeBtn: document.getElementById('themeBtn'),
+        graphicalChooser: document.getElementById('graphicalChooser'),
+        answerSection: document.querySelector('.answer-section')
     };
 
     function getDateString(date) {
@@ -107,6 +109,84 @@
         return correctParts.some(part => normalizedUser.includes(part));
     }
 
+    function extractGraphicalOptions(puzzle) {
+        const options = new Set();
+        const specialChars = ['→', '+', '=', '?', '缺右半边'];
+        
+        if (puzzle.content && puzzle.content.shapes) {
+            puzzle.content.shapes.forEach(row => {
+                row.forEach(shape => {
+                    if (!specialChars.includes(shape) && shape.trim() !== '') {
+                        options.add(shape);
+                    }
+                });
+            });
+        }
+        
+        const commonShapes = [
+            '□', '○', '△', '●', '■', '▽', '♢', '◉',
+            '↑', '↓', '←', '→',
+            '☺', '☹',
+            '·', '··', '···', '····', '·····',
+            '一', '二', '三', '四', '五',
+            '◐', '◑', '◒', '◓',
+            '▌', '▐', '▄', '▀',
+            '▨', '▩', '◫', '◧', '◨', '◩', '◪',
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
+        ];
+        
+        commonShapes.forEach(shape => options.add(shape));
+        
+        return Array.from(options);
+    }
+    
+    function renderGraphicalChooser(puzzle) {
+        if (!elements.graphicalChooser) return;
+        
+        if (puzzle.type !== 'graphical') {
+            elements.graphicalChooser.style.display = 'none';
+            return;
+        }
+        
+        const options = extractGraphicalOptions(puzzle);
+        
+        let html = '<div class="graphical-chooser-header"><span>点击选择答案：</span><button type="button" class="clear-choice-btn" id="clearChoiceBtn">清除</button></div>';
+        html += '<div class="graphical-options">';
+        
+        options.forEach(opt => {
+            html += `<button type="button" class="graphical-option" data-value="${opt}">${opt}</button>`;
+        });
+        
+        html += '</div>';
+        elements.graphicalChooser.innerHTML = html;
+        elements.graphicalChooser.style.display = 'block';
+        
+        const optionBtns = elements.graphicalChooser.querySelectorAll('.graphical-option');
+        optionBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const value = this.dataset.value;
+                const currentValue = elements.answerInput.value;
+                if (currentValue === value) {
+                    elements.answerInput.value = '';
+                    optionBtns.forEach(b => b.classList.remove('selected'));
+                } else {
+                    elements.answerInput.value = value;
+                    optionBtns.forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                }
+                elements.answerInput.focus();
+            });
+        });
+        
+        const clearBtn = elements.graphicalChooser.querySelector('#clearChoiceBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                elements.answerInput.value = '';
+                optionBtns.forEach(b => b.classList.remove('selected'));
+            });
+        }
+    }
+    
     function renderPuzzle(puzzle) {
         elements.puzzleType.textContent = PUZZLE_TYPE_NAMES[puzzle.type];
         elements.puzzleNumber.textContent = `第 ${puzzle.puzzleNumber} 题`;
@@ -151,6 +231,8 @@
         }
         
         elements.puzzleContent.innerHTML = contentHTML;
+        
+        renderGraphicalChooser(puzzle);
     }
 
     function getDifficultyText(difficulty) {
@@ -235,8 +317,21 @@
             }
             elements.submitBtn.disabled = true;
             elements.answerInput.disabled = true;
+            disableGraphicalChooser();
         } else {
             showAnswerResult('回答不正确，再想想...', false);
+        }
+    }
+    
+    function disableGraphicalChooser() {
+        if (!elements.graphicalChooser) return;
+        const optionBtns = elements.graphicalChooser.querySelectorAll('.graphical-option');
+        optionBtns.forEach(btn => {
+            btn.disabled = true;
+        });
+        const clearBtn = elements.graphicalChooser.querySelector('#clearChoiceBtn');
+        if (clearBtn) {
+            clearBtn.disabled = true;
         }
     }
 
@@ -463,6 +558,7 @@
             elements.submitBtn.disabled = true;
             elements.answerInput.disabled = true;
             showAnswerResult('今日已完成 ✓', true);
+            setTimeout(disableGraphicalChooser, 100);
         }
         
         elements.hintsContainer.addEventListener('click', function(e) {

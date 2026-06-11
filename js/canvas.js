@@ -92,7 +92,9 @@
     function draw(e) {
         if (!isDrawing) return;
         
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
         const pos = getPosition(e);
         
         ctx.beginPath();
