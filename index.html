@@ -14,6 +14,7 @@
                 <span class="date-display" id="dateDisplay"></span>
             </div>
             <div class="header-right">
+                <span class="timer-display" id="timerDisplay">00:00</span>
                 <span class="puzzle-type" id="puzzleType"></span>
                 <button class="icon-btn" id="statsBtn" title="通关记录">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -111,7 +112,18 @@
                     <h2>通关记录</h2>
                     <button class="close-btn" id="closeStats">&times;</button>
                 </div>
-                <div class="stats-body" id="statsBody"></div>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="records">我的记录</button>
+                    <button class="tab-btn" data-tab="leaderboard">排行榜</button>
+                </div>
+                <div class="tab-content">
+                    <div class="tab-pane active" id="tab-records">
+                        <div class="stats-body" id="statsBody"></div>
+                    </div>
+                    <div class="tab-pane" id="tab-leaderboard">
+                        <div class="leaderboard-body" id="leaderboardBody"></div>
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -4,13 +4,18 @@
     const STORAGE_KEYS = {
         COMPLETED: 'puzzle_completed',
         THEME: 'puzzle_theme',
-        HINTS_USED: 'puzzle_hints_used'
+        HINTS_USED: 'puzzle_hints_used',
+        LEADERBOARD: 'puzzle_leaderboard',
+        START_TIME: 'puzzle_start_time'
     };
 
     let currentPuzzle = null;
     let currentDate = null;
     let hintsRevealed = [];
     let isCompleted = false;
+    let timerInterval = null;
+    let startTime = null;
+    let elapsedTime = 0;
 
     const elements = {
         dateDisplay: document.getElementById('dateDisplay'),
@@ -37,8 +42,54 @@
         closeCompleted: document.getElementById('closeCompleted'),
         themeBtn: document.getElementById('themeBtn'),
         graphicalChooser: document.getElementById('graphicalChooser'),
-        answerSection: document.querySelector('.answer-section')
+        answerSection: document.querySelector('.answer-section'),
+        timerDisplay: document.getElementById('timerDisplay'),
+        leaderboardBody: document.getElementById('leaderboardBody'),
+        tabBtns: document.querySelectorAll('.tab-btn'),
+        tabPanes: document.querySelectorAll('.tab-pane')
     };
+
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function startTimer() {
+        if (timerInterval) return;
+        
+        const savedStartTime = localStorage.getItem(STORAGE_KEYS.START_TIME);
+        if (savedStartTime && !isCompleted) {
+            startTime = parseInt(savedStartTime);
+            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+        } else if (!isCompleted) {
+            startTime = Date.now();
+            localStorage.setItem(STORAGE_KEYS.START_TIME, startTime.toString());
+            elapsedTime = 0;
+        }
+        
+        updateTimerDisplay();
+        
+        timerInterval = setInterval(() => {
+            if (!isCompleted) {
+                elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                updateTimerDisplay();
+            }
+        }, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function updateTimerDisplay() {
+        if (elements.timerDisplay) {
+            elements.timerDisplay.textContent = formatTime(elapsedTime);
+        }
+    }
 
     function getDateString(date) {
         const year = date.getFullYear();
@@ -352,16 +403,24 @@
 
     function markCompleted() {
         isCompleted = true;
-        saveCompleted(currentPuzzle.date, {
+        stopTimer();
+        localStorage.removeItem(STORAGE_KEYS.START_TIME);
+        
+        const completionData = {
             puzzleId: currentPuzzle.id,
             type: currentPuzzle.type,
             title: currentPuzzle.title,
             completedAt: new Date().toISOString(),
-            hintsUsed: hintsRevealed.length
-        });
+            hintsUsed: hintsRevealed.length,
+            timeUsed: elapsedTime
+        };
+        
+        saveCompleted(currentPuzzle.date, completionData);
+        addToLeaderboard(completionData);
         
         const totalCompleted = getTotalCompleted();
-        elements.completedMessage.textContent = `你已完成 ${totalCompleted} 道题目！`;
+        const timeStr = formatTime(elapsedTime);
+        elements.completedMessage.textContent = `用时 ${timeStr}，提示 ${hintsRevealed.length} 次\n你已完成 ${totalCompleted} 道题目！`;
         
         setTimeout(() => {
             elements.completedModal.classList.add('show');
@@ -486,6 +545,191 @@
         return html;
     }
 
+    function generateMockNames() {
+        const surnames = ['张', '李', '王', '刘', '陈', '杨', '黄', '赵', '周', '吴', '徐', '孙', '马', '朱', '胡', '郭', '何', '高', '林', '罗'];
+        const names = ['明', '华', '强', '磊', '军', '洋', '勇', '彬', '杰', '涛', '敏', '静', '丽', '芳', '燕', '玲', '桂', '娣', '秀', '英'];
+        const result = [];
+        for (let i = 0; i < 20; i++) {
+            const s = surnames[Math.floor(Math.random() * surnames.length)];
+            const n = names[Math.floor(Math.random() * names.length)];
+            result.push(s + n);
+        }
+        return result;
+    }
+
+    function getLeaderboard() {
+        const data = localStorage.getItem(STORAGE_KEYS.LEADERBOARD);
+        let leaderboard = data ? JSON.parse(data) : [];
+        
+        const today = getDateString(new Date());
+        leaderboard = leaderboard.filter(item => {
+            const itemDate = new Date(item.completedAt).toISOString().split('T')[0];
+            return itemDate === today;
+        });
+        
+        if (leaderboard.length === 0) {
+            const mockNames = generateMockNames();
+            const types = ['logic', 'number', 'graphical'];
+            for (let i = 0; i < 15; i++) {
+                const baseTime = 30 + i * 15 + Math.floor(Math.random() * 30);
+                const hintsUsed = Math.floor(Math.random() * 4);
+                leaderboard.push({
+                    id: `mock_${i}`,
+                    name: mockNames[i % mockNames.length],
+                    type: types[Math.floor(Math.random() * 3)],
+                    completedAt: new Date(Date.now() - Math.floor(Math.random() * 3600000)).toISOString(),
+                    hintsUsed: hintsUsed,
+                    timeUsed: baseTime + hintsUsed * 60,
+                    isMock: true
+                });
+            }
+            saveLeaderboard(leaderboard);
+        }
+        
+        return leaderboard;
+    }
+
+    function saveLeaderboard(leaderboard) {
+        localStorage.setItem(STORAGE_KEYS.LEADERBOARD, JSON.stringify(leaderboard));
+    }
+
+    function addToLeaderboard(completionData) {
+        const leaderboard = getLeaderboard();
+        const today = getDateString(new Date());
+        
+        const existingIndex = leaderboard.findIndex(item => !item.isMock && item.name === '我');
+        if (existingIndex >= 0) {
+            leaderboard.splice(existingIndex, 1);
+        }
+        
+        leaderboard.push({
+            id: `user_${Date.now()}`,
+            name: '我',
+            type: completionData.type,
+            completedAt: completionData.completedAt,
+            hintsUsed: completionData.hintsUsed,
+            timeUsed: completionData.timeUsed,
+            isMock: false
+        });
+        
+        leaderboard.sort((a, b) => {
+            if (a.hintsUsed !== b.hintsUsed) {
+                return a.hintsUsed - b.hintsUsed;
+            }
+            return a.timeUsed - b.timeUsed;
+        });
+        
+        saveLeaderboard(leaderboard);
+    }
+
+    function sortLeaderboard(leaderboard) {
+        return [...leaderboard].sort((a, b) => {
+            if (a.hintsUsed !== b.hintsUsed) {
+                return a.hintsUsed - b.hintsUsed;
+            }
+            return a.timeUsed - b.timeUsed;
+        });
+    }
+
+    function showLeaderboard() {
+        const leaderboard = sortLeaderboard(getLeaderboard());
+        
+        let html = '<div class="leaderboard-header"><h3>今日排行榜</h3><p class="leaderboard-tip">按提示数+用时综合排名</p></div>';
+        
+        if (leaderboard.length === 0) {
+            html += '<div class="no-stats">今日暂无排行数据</div>';
+        } else {
+            html += '<div class="leaderboard-list">';
+            
+            const topThree = leaderboard.slice(0, 3);
+            const rest = leaderboard.slice(3);
+            
+            if (topThree.length > 0) {
+                html += '<div class="podium">';
+                const medals = ['gold', 'silver', 'bronze'];
+                const ranks = [1, 2, 3];
+                
+                if (topThree[1]) {
+                    html += renderPodiumItem(topThree[1], medals[1], ranks[1]);
+                }
+                if (topThree[0]) {
+                    html += renderPodiumItem(topThree[0], medals[0], ranks[0]);
+                }
+                if (topThree[2]) {
+                    html += renderPodiumItem(topThree[2], medals[2], ranks[2]);
+                }
+                html += '</div>';
+            }
+            
+            if (rest.length > 0) {
+                html += '<div class="leaderboard-rest">';
+                rest.forEach((item, index) => {
+                    html += renderLeaderboardItem(item, index + 4);
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        elements.leaderboardBody.innerHTML = html;
+    }
+
+    function renderPodiumItem(item, medal, rank) {
+        const timeStr = formatTime(item.timeUsed);
+        const isMe = item.name === '我' && !item.isMock;
+        const typeName = PUZZLE_TYPE_NAMES[item.type] || item.type;
+        
+        return `
+            <div class="podium-item ${medal} ${isMe ? 'is-me' : ''}">
+                <div class="podium-medal">
+                    <span class="medal-icon">${medal === 'gold' ? '🥇' : medal === 'silver' ? '🥈' : '🥉'}</span>
+                    <span class="rank-number">${rank}</span>
+                </div>
+                <div class="podium-name">${item.name}${isMe ? ' (我)' : ''}</div>
+                <div class="podium-stats">
+                    <div class="podium-time">${timeStr}</div>
+                    <div class="podium-hints">提示 ${item.hintsUsed} 次</div>
+                    <div class="podium-type">${typeName}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderLeaderboardItem(item, rank) {
+        const timeStr = formatTime(item.timeUsed);
+        const isMe = item.name === '我' && !item.isMock;
+        const typeName = PUZZLE_TYPE_NAMES[item.type] || item.type;
+        
+        return `
+            <div class="leaderboard-item ${isMe ? 'is-me' : ''}">
+                <div class="lb-rank">${rank}</div>
+                <div class="lb-name">${item.name}${isMe ? ' (我)' : ''}</div>
+                <div class="lb-type">${typeName}</div>
+                <div class="lb-hints">${item.hintsUsed}次</div>
+                <div class="lb-time">${timeStr}</div>
+            </div>
+        `;
+    }
+
+    function initTabs() {
+        elements.tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tab = this.dataset.tab;
+                
+                elements.tabBtns.forEach(b => b.classList.remove('active'));
+                elements.tabPanes.forEach(p => p.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById(`tab-${tab}`).classList.add('active');
+                
+                if (tab === 'leaderboard') {
+                    showLeaderboard();
+                }
+            });
+        });
+    }
+
     function saveCompleted(date, data) {
         const completed = getAllCompleted();
         completed[date] = data;
@@ -559,7 +803,17 @@
             elements.answerInput.disabled = true;
             showAnswerResult('今日已完成 ✓', true);
             setTimeout(disableGraphicalChooser, 100);
+            
+            const completedData = getAllCompleted()[currentPuzzle.date];
+            if (completedData && completedData.timeUsed) {
+                elapsedTime = completedData.timeUsed;
+                updateTimerDisplay();
+            }
+        } else {
+            startTimer();
         }
+        
+        initTabs();
         
         elements.hintsContainer.addEventListener('click', function(e) {
             if (e.target.classList.contains('hint-btn')) {
